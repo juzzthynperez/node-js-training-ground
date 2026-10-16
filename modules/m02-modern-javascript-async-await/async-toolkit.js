@@ -28,12 +28,18 @@ export class TimeoutError extends Error {
 /**
  * Resolve after `ms` milliseconds.
  * A Promise wrapper around setTimeout — the smallest possible async utility.
+ * `ms` must be a finite number in [0, 2**31 - 1] — setTimeout silently clamps
+ * larger values to ~1ms, so the range is enforced, not assumed.
  * Declared async so a bad `ms` arrives as a rejection, like retry/mapLimit,
  * instead of a surprise synchronous throw.
  */
 export async function sleep(ms) {
-  if (typeof ms !== 'number' || Number.isNaN(ms) || ms < 0) {
-    throw new RangeError(`sleep(ms): ms must be a non-negative number, got ${ms}`);
+  if (!Number.isFinite(ms) || ms < 0 || ms > 2 ** 31 - 1) {
+    // setTimeout clamps Infinity and values > 2**31-1 down to ~1ms with only a
+    // warning — "sleep forever" would resolve almost instantly. Reject instead.
+    throw new RangeError(
+      `sleep(ms): ms must be a finite number between 0 and 2**31 - 1, got ${ms}`,
+    );
   }
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -43,14 +49,19 @@ export async function sleep(ms) {
 /**
  * Call `fn` until it succeeds, up to `retries` extra attempts after the first.
  * `fn` receives the attempt number (1-based) so it can log what it is doing.
- * Waits `delayMs` between attempts. Rethrows the last error — never swallows it.
+ * Waits `delayMs` between attempts; `delayMs` must be a finite number in
+ * [0, 2**31 - 1] (same setTimeout clamp limit as sleep).
+ * Rethrows the last error — never swallows it.
  */
 export async function retry(fn, { retries = 3, delayMs = 100 } = {}) {
   if (!Number.isInteger(retries) || retries < 0) {
     throw new RangeError(`retry: retries must be a non-negative integer, got ${retries}`);
   }
-  if (typeof delayMs !== 'number' || Number.isNaN(delayMs) || delayMs < 0) {
-    throw new RangeError(`retry: delayMs must be a non-negative number, got ${delayMs}`);
+  if (!Number.isFinite(delayMs) || delayMs < 0 || delayMs > 2 ** 31 - 1) {
+    // same clamp trap as sleep(ms): setTimeout would fire almost immediately
+    throw new RangeError(
+      `retry: delayMs must be a finite number between 0 and 2**31 - 1, got ${delayMs}`,
+    );
   }
 
   const totalAttempts = retries + 1;
@@ -161,8 +172,10 @@ export async function runSelfChecks() {
     assert.equal(value, undefined);
     assert.ok(elapsed >= 50, `expected >= 50ms, waited ${elapsed}ms`);
   });
-  await t.check('rejects a negative delay instead of resolving', async () => {
+  await t.check('rejects negative, non-finite, or out-of-range delays', async () => {
     await assert.rejects(sleep(-1), RangeError);
+    await assert.rejects(sleep(Infinity), RangeError);
+    await assert.rejects(sleep(2 ** 31), RangeError);
   });
 
   console.log('retry');
@@ -206,6 +219,7 @@ export async function runSelfChecks() {
   await t.check('rejects invalid options instead of hiding them', async () => {
     await assert.rejects(retry(async () => {}, { retries: -1 }), RangeError);
     await assert.rejects(retry(async () => {}, { delayMs: -5 }), RangeError);
+    await assert.rejects(retry(async () => {}, { delayMs: Infinity }), RangeError);
   });
 
   console.log('withTimeout');
@@ -275,6 +289,22 @@ export async function runSelfChecks() {
       }),
       /item 3 exploded/,
     );
+  });
+  await t.check('fails fast instead of waiting for stragglers', async () => {
+    // item 4 is a long-running straggler; an allSettled-style implementation
+    // would only reject after it finishes (~400ms). Fail-fast must reject
+    // almost immediately after item 3 explodes.
+    const started = Date.now();
+    await assert.rejects(
+      mapLimit([1, 2, 3, 4], 2, async (n) => {
+        if (n === 3) throw new Error('item 3 exploded');
+        await sleep(n === 4 ? 400 : 5);
+        return n;
+      }),
+      /item 3 exploded/,
+    );
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed < 200, `waited ${elapsed}ms for stragglers — not fail-fast`);
   });
   await t.check('rejects an invalid limit', async () => {
     await assert.rejects(mapLimit([1], 0, async (n) => n), RangeError);
