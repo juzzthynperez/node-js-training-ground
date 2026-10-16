@@ -1,0 +1,20 @@
+# Trainer evidence (private — never committed)
+evidence/
+
+# Dependencies & generated files
+node_modules/
+dist/
+coverage/
+
+# Secrets & local config
+.env
+
+# Databases
+*.db
+
+# Prisma generated client
+src/generated/
+
+# Editor/OS noise
+.DS_Store
+.vscode/
