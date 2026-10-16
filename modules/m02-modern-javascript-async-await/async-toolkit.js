@@ -28,6 +28,8 @@ export class TimeoutError extends Error {
 /**
  * Resolve after `ms` milliseconds.
  * A Promise wrapper around setTimeout — the smallest possible async utility.
+ * `ms` must be a finite number in [0, 2**31 - 1] — setTimeout silently clamps
+ * larger values to ~1ms, so the range is enforced, not assumed.
  * Declared async so a bad `ms` arrives as a rejection, like retry/mapLimit,
  * instead of a surprise synchronous throw.
  */
@@ -47,7 +49,9 @@ export async function sleep(ms) {
 /**
  * Call `fn` until it succeeds, up to `retries` extra attempts after the first.
  * `fn` receives the attempt number (1-based) so it can log what it is doing.
- * Waits `delayMs` between attempts. Rethrows the last error — never swallows it.
+ * Waits `delayMs` between attempts; `delayMs` must be a finite number in
+ * [0, 2**31 - 1] (same setTimeout clamp limit as sleep).
+ * Rethrows the last error — never swallows it.
  */
 export async function retry(fn, { retries = 3, delayMs = 100 } = {}) {
   if (!Number.isInteger(retries) || retries < 0) {
@@ -168,7 +172,7 @@ export async function runSelfChecks() {
     assert.equal(value, undefined);
     assert.ok(elapsed >= 50, `expected >= 50ms, waited ${elapsed}ms`);
   });
-  await t.check('rejects a negative or non-finite delay instead of resolving', async () => {
+  await t.check('rejects negative, non-finite, or out-of-range delays', async () => {
     await assert.rejects(sleep(-1), RangeError);
     await assert.rejects(sleep(Infinity), RangeError);
     await assert.rejects(sleep(2 ** 31), RangeError);
