@@ -74,10 +74,12 @@ export async function retry<T>(
   }
 
   const totalAttempts = retries + 1;
-  // Seeded with undefined so the definite-assignment check is satisfied without
-  // an assertion: the loop always runs at least once (retries >= 0), so a real
-  // error is always captured before the throw. `unknown`, never `any`.
-  let lastError: unknown = undefined;
+  // Typed `unknown`, never `any`. No initializer needed: TS's definite-assignment
+  // check (TS2454) exempts `unknown` because `undefined` inhabits it — unlike a
+  // `let lastError: string`, which would be flagged after a loop TS can't prove
+  // ran. The loop always runs at least once anyway (retries >= 0), so a real
+  // error is always captured before the throw.
+  let lastError: unknown;
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
       return await fn(attempt);
@@ -207,7 +209,11 @@ export async function runSelfChecks(): Promise<boolean> {
     const value = await sleep(50);
     const elapsed = Date.now() - started;
     assert.equal(value, undefined);
-    assert.ok(elapsed >= 50, `expected >= 50ms, waited ${elapsed}ms`);
+    // Clock-granularity tolerance: Date.now() deltas can land ~1ms under the
+    // requested delay without the sleep being wrong (observed: 49ms on Node 24).
+    // 45ms still catches the real failure this guards against — setTimeout
+    // clamping a bad value down to ~1ms.
+    assert.ok(elapsed >= 45, `expected >= ~50ms, waited ${elapsed}ms`);
   });
   await t.check('rejects negative, non-finite, or out-of-range delays', async () => {
     await assert.rejects(sleep(-1), RangeError);
@@ -251,7 +257,10 @@ export async function runSelfChecks(): Promise<boolean> {
       }, { retries: 2, delayMs: 50 }),
     );
     const elapsed = Date.now() - started;
-    assert.ok(elapsed >= 100, `expected >= 100ms of delays, took ${elapsed}ms`);
+    // Same clock-granularity tolerance as the sleep check: two 50ms delays can
+    // measure 99ms; the assertion's job is to prove both delays happened
+    // (a missing delay measures ~0-5ms), not to police sub-millisecond accuracy.
+    assert.ok(elapsed >= 95, `expected >= ~100ms of delays, took ${elapsed}ms`);
   });
   await t.check('rejects invalid options instead of hiding them', async () => {
     await assert.rejects(retry(async () => {}, { retries: -1 }), RangeError);
