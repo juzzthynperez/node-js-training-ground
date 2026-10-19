@@ -1,0 +1,20 @@
+{
+  "name": "m04-typescript-on-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "M04 practicals: strict TypeScript port of the M02 async toolkit plus Task domain types",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "toolkit": "tsx async-toolkit.ts",
+    "toolkit:native": "node async-toolkit.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
