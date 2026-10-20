@@ -87,7 +87,9 @@ Composite-key notes Mermaid cannot draw:
   neither column may be NULL. That single constraint is what makes "same task, same tag twice"
   impossible.
 - `tasks` has `UNIQUE (user_id, title)` — one owner cannot hold two tasks with the same title,
-  but two different owners may (seed data proves it: Alice and Bob both own "Buy milk").
+  but two different owners may. The seed keeps every title globally unique anyway, so M05's
+  stricter global 409 rule is never contradicted by seed data; the cross-owner allowance is
+  proven live in `evidence/m06/constraint-proofs.txt` (TEST 6), not by seed rows.
 
 ### Design decisions worth defending
 

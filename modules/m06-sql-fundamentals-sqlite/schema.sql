@@ -49,7 +49,9 @@ CREATE TABLE users (
 -- * ON DELETE CASCADE: deleting a user takes their tasks with them (no orphans).
 -- * UNIQUE (user_id, title): the M05 409-on-duplicate-title rule made DB-native —
 --   one user may not hold two tasks with the same title, but two different
---   users both may ("Buy milk" twice across users is legal).
+--   users both may (per-owner rule). The seed keeps titles globally unique
+--   anyway, so M05's stricter global 409 is never contradicted by seed data;
+--   the cross-owner allowance is proven live in constraint-proofs TEST 6.
 -- * status is TEXT + CHECK: SQLite has no enum; the constraint is the enum.
 -- * due_date TEXT NULL: ISO dates compare correctly as text (lexicographic =
 --   chronological for YYYY-MM-DD), and NULL means "no due date" — which is what
