@@ -1,0 +1,27 @@
+meta {
+  name: Patch task (empty body -> 400)
+  type: http
+  seq: 10
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/tasks/{{createdTaskId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("400: at least one field required", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("VALIDATION_ERROR");
+    expect(err.details[0].message).to.include("At least one");
+  });
+}

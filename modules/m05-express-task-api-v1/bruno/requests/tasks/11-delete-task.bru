@@ -1,0 +1,18 @@
+meta {
+  name: Delete task (204)
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/tasks/{{createdTaskId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responds 204 with no body", function() {
+    expect(res.getStatus()).to.equal(204);
+    expect(res.getBody()).to.equal("");
+  });
+}

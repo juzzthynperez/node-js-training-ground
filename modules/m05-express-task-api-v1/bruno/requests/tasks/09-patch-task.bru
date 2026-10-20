@@ -1,0 +1,29 @@
+meta {
+  name: Patch task (valid -> 200)
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/tasks/{{createdTaskId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "status": "in_progress"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("status updated, untouched fields preserved", function() {
+    const body = res.getBody();
+    expect(body.data.status).to.equal("in_progress");
+    expect(body.data.title).to.equal("Bruno: verify the M05 checkpoint");
+  });
+}

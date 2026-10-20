@@ -1,0 +1,24 @@
+meta {
+  name: Get task (not a UUID -> 400)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks/not-a-uuid
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("400 VALIDATION_ERROR with id detail", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("VALIDATION_ERROR");
+    const idProblem = err.details.find((d) => d.path === "id");
+    expect(idProblem).to.exist;
+  });
+}
