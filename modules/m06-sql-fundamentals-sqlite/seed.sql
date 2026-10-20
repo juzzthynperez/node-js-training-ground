@@ -16,9 +16,12 @@
 -- Data is shaped deliberately so the exercises have real answers:
 --   * 4 users, but dave has ZERO tasks        -> LEFT JOIN misses show up
 --   * 18 tasks, explicit ids and created_at   -> deterministic ORDER BY / OFFSET
---   * unique titles PER USER; alice and bob both own "Buy milk"
---     (legal: UNIQUE(user_id, title) is composite) — no single user owns a
---     duplicate, so the M05 409 rule is representable by this schema
+--   * globally unique titles: alice owns "Buy milk", bob owns "Buy oat milk".
+--     The DB rule ALLOWS cross-owner duplicates (UNIQUE(user_id, title) is
+--     composite) but the seed never exercises that, so nothing here ever
+--     contradicts M05's stricter global 409 rule. The cross-owner allowance
+--     is proven live in evidence/m06/constraint-proofs.txt (TEST 6) instead
+--     of with rows the M05 API would reject.
 --   * 2 tasks are untagged (11, 16)           -> untagged rows survive LEFT JOIN
 --   * tag "someday" (7) is never used         -> HAVING COUNT = 0 is non-vacuous
 --   * 30 junction rows; several tasks carry multiple tags -> M:N is visible
@@ -40,7 +43,7 @@ INSERT INTO tasks (id, user_id, title, description, status, due_date, created_at
     ( 4, 1, 'Book dentist appointment','Routine check-up',            'todo',        NULL,           '2026-10-09 11:00:00', '2026-10-09 11:00:00'),
     ( 5, 1, 'Prepare M06 schema notes','Junction table decisions',     'in_progress', '2026-10-21',   '2026-10-10 08:45:00', '2026-10-14 12:00:00'),
     ( 6, 1, 'Pay electricity bill',    'Due end of month',             'todo',        '2026-10-25',   '2026-10-10 18:20:00', '2026-10-10 18:20:00'),
-    ( 7, 2, 'Buy milk',                'Different user, same title',   'todo',        NULL,           '2026-10-11 08:10:00', '2026-10-11 08:10:00'),
+    ( 7, 2, 'Buy oat milk',            'Bob’s own errand; title is unique', 'todo',     NULL,           '2026-10-11 08:10:00', '2026-10-11 08:10:00'),
     ( 8, 2, 'Fix login bug',           'Symptom: 500 on bad password', 'in_progress', '2026-10-20',   '2026-10-11 09:00:00', '2026-10-15 14:00:00'),
     ( 9, 2, 'Update dependencies',     'express 5.3.0, zod 4',         'done',        '2026-10-15',   '2026-10-11 10:30:00', '2026-10-15 16:20:00'),
     (10, 2, 'Write unit tests',        'Cover the happy path first',   'todo',        '2026-10-24',   '2026-10-12 08:00:00', '2026-10-12 08:00:00'),
@@ -69,7 +72,7 @@ INSERT INTO task_tags (task_id, tag_id) VALUES
     ( 4, 2), ( 4, 4),   -- Book dentist: home + errand
     ( 5, 1), ( 5, 5),   -- Prepare M06 schema notes: work + learning
     ( 6, 2), ( 6, 3),   -- Pay electricity bill: home + urgent
-    ( 7, 2),            -- Buy milk (bob): home
+    ( 7, 2),            -- Buy oat milk (bob): home
     ( 8, 1), ( 8, 3),   -- Fix login bug: work + urgent
     ( 9, 1), ( 9, 6),   -- Update dependencies: work + admin
     (10, 1), (10, 5),   -- Write unit tests: work + learning
@@ -79,6 +82,7 @@ INSERT INTO task_tags (task_id, tag_id) VALUES
     (15, 1), (15, 5),   -- Research index strategies: work + learning
     (17, 1), (17, 3),   -- Migrate legacy data: work + urgent
     (18, 6), (18, 3);   -- Close Q3 budget: admin + urgent
--- 30 rows. Untagged tasks: 11 and 16. Unused tag: 7 ('someday'). Tasks 1 and 7
--- prove two users can share a title while each individually satisfies
--- UNIQUE(user_id, title).
+-- 30 rows. Untagged tasks: 11 and 16. Unused tag: 7 ('someday'). Every title in
+-- the seed is globally unique so the data never contradicts M05's global 409
+-- rule; that two different owners MAY share a title under UNIQUE(user_id, title)
+-- is proven live in evidence/m06/constraint-proofs.txt (TEST 6).
