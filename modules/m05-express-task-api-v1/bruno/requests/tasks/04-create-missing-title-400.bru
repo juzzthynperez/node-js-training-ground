@@ -1,0 +1,33 @@
+meta {
+  name: Create task (missing title -> 400)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/tasks
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "status": "todo"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("responds 400 VALIDATION_ERROR with field-level details", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("VALIDATION_ERROR");
+    expect(err.message).to.equal("Request validation failed");
+    expect(err.details).to.be.an("array");
+    const titleProblem = err.details.find((d) => d.path === "title");
+    expect(titleProblem).to.exist;
+    expect(err.requestId).to.be.a("string");
+  });
+}

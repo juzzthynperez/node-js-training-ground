@@ -1,0 +1,23 @@
+meta {
+  name: Inbound x-request-id is echoed
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+headers {
+  x-request-id: bruno-runner-42
+}
+
+tests {
+  test("server echoes the client-supplied request id", function() {
+    const headers = res.getHeaders();
+    const rid = headers["x-request-id"] ?? headers["X-Request-Id"];
+    expect(rid).to.equal("bruno-runner-42");
+  });
+}
