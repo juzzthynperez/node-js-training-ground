@@ -44,7 +44,9 @@ export function validate(schemas: ValidationSchemas): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     const valid: NonNullable<Request["valid"]> = {};
 
-    for (const part of ["body", "params", "query"] as const) {
+    // params BEFORE body: m07 checked the id gate first, so a PATCH carrying
+    // both a bad id and a bad body surfaces the id error — keep the precedence.
+    for (const part of ["params", "query", "body"] as const) {
       const schema = schemas[part];
       if (schema === undefined) continue;
 

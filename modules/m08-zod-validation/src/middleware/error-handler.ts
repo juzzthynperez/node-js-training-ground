@@ -39,16 +39,22 @@ export function errorHandlerFactory(options: ErrorHandlerOptions): ErrorRequestH
     // startup env schema) rejecting input, which is exactly the 400 case.
     // One Zod issue -> one { path, message } detail: the envelope's frozen
     // details[] shape, MAPPED, not reshaped. unrecognized_keys expands to one
-    // detail PER key (M07 parity: path = the key, message = "Unknown field").
+    // detail PER key (M07 parity: path = the key, message = "Unknown field")
+    // and sorts FIRST: the old validator looped unknown keys before its field
+    // checks, while Zod emits shape issues before unrecognized_keys — the
+    // pre-PR review caught the reorder on mixed `{"foo":1,"title":123}` bodies.
     if (err instanceof ZodError) {
-      const details: ErrorDetail[] = err.issues.flatMap((issue) =>
+      const mapIssue = (issue: (typeof err.issues)[number]): ErrorDetail[] =>
         issue.code === "unrecognized_keys"
           ? issue.keys.map((key) => ({
               path: [...issue.path, key].join("."),
               message: "Unknown field",
             }))
-          : [{ path: issue.path.join("."), message: issue.message }],
-      );
+          : [{ path: issue.path.join("."), message: issue.message }];
+      const details: ErrorDetail[] = [
+        ...err.issues.filter((issue) => issue.code === "unrecognized_keys").flatMap(mapIssue),
+        ...err.issues.filter((issue) => issue.code !== "unrecognized_keys").flatMap(mapIssue),
+      ];
       const envelope: ErrorEnvelope = {
         error: {
           code: "VALIDATION_ERROR",

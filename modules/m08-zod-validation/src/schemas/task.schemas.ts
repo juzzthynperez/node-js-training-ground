@@ -11,9 +11,11 @@
 // unified string `error` parameter, the one form this Zod build accepts on
 // every schema and check.
 //
-// Derivation, not duplication: the create schema owns the field definitions;
-// the update schema is create.partial().strict(); the query and params schemas
-// reuse the same field vocabulary.
+// Derivation, not duplication: one taskFields() factory declares the three
+// body fields once (parameterized only by context message — m07 froze create
+// vs PATCH wording separately); create adds the status default, the update
+// adds .partial().strict() behind a pre-parse emptiness guard; the query and
+// params schemas reuse the same field vocabulary.
 
 import { z } from "zod";
 import { TASK_STATUSES } from "../task-types.ts";
@@ -68,25 +70,49 @@ function taskFields(context: { title: string; description: string }) {
 export const createTaskSchema = z.object(
   {
     ...taskFields({ title: MESSAGES.title, description: MESSAGES.description }),
-    status: statusField.default("todo"),
+    // M07 parity: `body.status ?? "todo"` treated JSON null as ABSENT and
+    // defaulted it; .default() alone fires only on undefined, so null would
+    // 400. Preprocess null -> undefined; a genuinely invalid value ("nonsense")
+    // still falls through to the enum error.
+    status: z.preprocess((value) => (value === null ? undefined : value), statusField.default("todo")),
   },
   { error: MESSAGES.body },
 );
 
 // ---- update ----------------------------------------------------------------
 
-/** Derived from the same field factory with .partial() (no field logic
- *  re-declared) + .strict(): unknown keys are REJECTED — one detail per key
- *  at path <key> (M07 parity: "Unknown field"). The cross-field .refine()
- *  collects "empty patch" as a whole-object issue, which lands at path "" in
- *  the envelope. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Derived from the same field factory (no field logic re-declared) with
+ *  .partial() + .strict(): unknown keys are REJECTED — one detail per key at
+ *  path <key> (M07 parity: "Unknown field").
+ *
+ *  The "empty patch" rule is a PRE-PARSE guard (unknown().refine().pipe()),
+ *  not an object .refine(): Zod 4 runs an object refinement even when the
+ *  object parse FAILED, so `PATCH {"foo":1}` would have collected BOTH the
+ *  unknown-key detail and a spurious "At least one of …" (pre-PR review
+ *  finding — m07 made the two mutually exclusive with an early return:
+ *  unknown-key errors returned before the emptiness check ever ran). The
+ *  guard fails → only the whole-object issue at path ""; the guard passes →
+ *  only the object's own issues. The predicate skips non-objects so a
+ *  non-object body (and an array, which m07 rejected as a non-object) falls
+ *  through to the object's "Body must be a JSON object" instead of being
+ *  misread as an empty patch. */
 export const updateTaskSchema = z
-  .object(taskFields({ title: MESSAGES.titlePatch, description: MESSAGES.descriptionPatch }), {
-    error: MESSAGES.body,
+  .unknown()
+  .refine((body) => (isPlainObject(body) ? Object.keys(body).length > 0 : true), {
+    error: MESSAGES.atLeastOne,
   })
-  .partial()
-  .strict()
-  .refine((patch) => Object.keys(patch).length > 0, { error: MESSAGES.atLeastOne });
+  .pipe(
+    z
+      .object(taskFields({ title: MESSAGES.titlePatch, description: MESSAGES.descriptionPatch }), {
+        error: MESSAGES.body,
+      })
+      .partial()
+      .strict(),
+  );
 
 // ---- list query ------------------------------------------------------------
 
@@ -111,29 +137,51 @@ function queryParam<S extends z.ZodType>(inner: S) {
 
 /** All problems are collected per-field by Zod and surface in ONE 400 with
  *  a details entry per path (Bruno v2/08 asserts status+sort+page together). */
+/** m07's parsePositiveInt gate, char for char: /^[1-9][0-9]*$/ on the raw
+ *  STRING before coercion, then Number + safe-integer (+ range) checks on
+ *  the NUMBER. z.coerce.number() alone would accept page=007, 1e3, +1, 0x10
+ *  and answer 200 where v1/v2 answered 400 (pre-PR review finding). Every
+ *  stage carries the field's ONE frozen message, so any failure mode still
+ *  reports the single v1 string. */
+const decimalPositive = (message: string) =>
+  z.string({ error: message }).regex(/^[1-9][0-9]*$/, { error: message });
+
 export const listQuerySchema = z.object({
   status: queryParam(statusField),
   q: queryParam(z.string().trim()),
   sort: queryParam(z.enum(SORTABLE_FIELDS, { error: MESSAGES.sort })),
   order: queryParam(z.enum(["asc", "desc"], { error: MESSAGES.order })),
   page: queryParam(
-    z.coerce.number({ error: MESSAGES.page }).int({ error: MESSAGES.page }).min(1, { error: MESSAGES.page }),
+    decimalPositive(MESSAGES.page).pipe(
+      // <string>: the gate hands the pipe a string — the generic pins the
+      // coerce's input type so the pipe typechecks (bare coerce is unknown).
+      z.coerce.number<string>({ error: MESSAGES.page })
+        .int({ error: MESSAGES.page })
+        .min(1, { error: MESSAGES.page }),
+    ),
   ),
   pageSize: queryParam(
-    z
-      .coerce.number({ error: MESSAGES.pageSize })
-      .int({ error: MESSAGES.pageSize })
-      .min(1, { error: MESSAGES.pageSize })
-      .max(100, { error: MESSAGES.pageSize }),
+    decimalPositive(MESSAGES.pageSize).pipe(
+      z
+        .coerce.number<string>({ error: MESSAGES.pageSize })
+        .int({ error: MESSAGES.pageSize })
+        .min(1, { error: MESSAGES.pageSize })
+        .max(100, { error: MESSAGES.pageSize }),
+    ),
   ),
 });
 
 // ---- route params ----------------------------------------------------------
 
-/** z.uuid() parity with the old hand-written regex, settled against the
- *  installed binary: accepts the fixed seed UUIDs (v4 shape) and the NIL
- *  UUID exactly like /^[0-9a-f]{8}-…$/i did. */
-export const idParamsSchema = z.object({ id: z.uuid({ error: MESSAGES.uuid }) });
+/** m07's exact gate, char for char — NOT z.uuid(): the top-level format also
+ *  enforces RFC version [1-8] and variant [89ab], so hex-shaped ids like
+ *  …-9234-0234-… that m07 passed through to a 404 came back as 400s (pre-PR
+ *  review finding). Shape gate here; existence is the service's 404. */
+export const idParamsSchema = z.object({
+  id: z.string({ error: MESSAGES.uuid }).regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
+    error: MESSAGES.uuid,
+  }),
+});
 
 // ---- derived types — the ONLY request types in the codebase ----------------
 
