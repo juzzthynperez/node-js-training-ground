@@ -1,0 +1,31 @@
+meta {
+  name: Create task (duplicate title -> 409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/tasks
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Bruno: verify the M05 checkpoint"
+  }
+}
+
+assert {
+  res.status: eq 409
+}
+
+tests {
+  test("responds 409 with the fixed envelope (no details on non-validation errors)", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("CONFLICT");
+    expect(err.message).to.be.a("string");
+    expect(err.details).to.be.undefined;
+    expect(err.requestId).to.be.a("string");
+  });
+}
