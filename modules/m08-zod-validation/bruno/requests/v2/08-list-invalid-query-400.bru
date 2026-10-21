@@ -1,0 +1,26 @@
+meta {
+  name: v2: invalid list query -> 400 with per-field details
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks?status=nonsense&sort=password&page=0
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("every bad query param gets its own detail entry", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("VALIDATION_ERROR");
+    const paths = err.details.map((d) => d.path);
+    expect(paths).to.include("status");
+    expect(paths).to.include("sort");
+    expect(paths).to.include("page");
+  });
+}

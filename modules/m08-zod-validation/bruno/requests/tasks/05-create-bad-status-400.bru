@@ -1,0 +1,34 @@
+meta {
+  name: Create task (bad status -> 400)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/tasks
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "bad status probe",
+    "status": "nope"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("responds 400 naming the allowed statuses", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("VALIDATION_ERROR");
+    const statusProblem = err.details.find((d) => d.path === "status");
+    expect(statusProblem).to.exist;
+    expect(statusProblem.message).to.include("todo");
+    expect(statusProblem.message).to.include("in_progress");
+    expect(statusProblem.message).to.include("done");
+  });
+}

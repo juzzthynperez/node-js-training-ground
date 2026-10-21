@@ -1,0 +1,32 @@
+meta {
+  name: v2: list filtered by status
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks?status=todo
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("every returned task has status todo", function() {
+    const body = res.getBody();
+    expect(body.data).to.be.an("array");
+    for (const task of body.data) {
+      expect(task.status).to.equal("todo");
+    }
+  });
+
+  test("meta reports the filtered total, not the table size", function() {
+    const body = res.getBody();
+    // Seed has 9 'todo' tasks (graded in prisma/seed.ts).
+    expect(body.meta.total).to.equal(9);
+    expect(body.meta.page).to.equal(1);
+  });
+}

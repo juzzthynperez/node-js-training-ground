@@ -1,0 +1,100 @@
+// M07 — the M06 relational schema translated into Prisma schema language.
+//
+// WHAT CHANGED FROM modules/m06-sql-fundamentals-sqlite/schema.sql, AND WHY:
+//   * ids are UUID Strings, not INTEGER PRIMARY KEY rowid aliases — the M05 API
+//     wire contract (Bruno tests, isValidId gate, error messages) froze ids as
+//     UUID strings. The id is API-contract surface; the rowid alias was a
+//     storage choice. See the M07 write-up for the full decision.
+//   * The two CHECK constraints (ck_users_email, ck_tasks_status) have NO
+//     Prisma equivalent on SQLite. The status enum is enforced on input by the
+//     M05 validators (Zod takes over in M08); the email rule is documented as a
+//     known loss rather than silently forgotten.
+//   * updated_at's "explicit UPDATE bump" becomes Prisma's @updatedAt
+//     (client-side: Prisma sets it on every update — no trigger needed),
+//     exactly as the M06 schema comment anticipated.
+//   * due_date stays a date column: Prisma DateTime maps to ISO-8601 TEXT on
+//     SQLite (round-trip verified in evidence/m07/round-trip.txt).
+//   * Column/table names keep the M06 snake_case via @map / @@map, so the
+//     .schema dump stays comparable with M06's schema.sql.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // The generated client imports use .ts extensions to match this project's
+  // ESM import convention (same as every hand-written file in src/).
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// users — the "one" side of 1:N with tasks. Schema-only in v2: the API stays
+// tasks-only (M05 contract), users exist because tasks.user_id must reference
+// something real.
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tasks Task[]
+
+  @@map("users")
+}
+
+// tasks — the only table the API exposes. Per-owner title uniqueness
+// (uq_tasks_user_title in M06) is kept verbatim as @@unique([userId, title]):
+// the DB-level middle layer of the program-wide rule
+//   API global-409 ⊂ DB per-owner unique ⊂ globally-unique seed data.
+model Task {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  title       String
+  description String    @default("")
+  status      String    @default("todo") // CHECK lost: input-validated instead (see header)
+  // priority — added by the hand-edited migration
+  // 20261021025428_add_priority. Required with NO database default on purpose:
+  // the API layer decides the default ("medium"), the database only refuses
+  // NULLs. Existing rows were backfilled from their due_date by the migration.
+  priority    String
+  dueDate     DateTime? @map("due_date")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskTags TaskTag[]
+
+  @@unique([userId, title])
+  @@index([userId]) // was idx_tasks_user_id
+  @@map("tasks")
+}
+
+// tags — independent of users; M:N lives entirely in the junction table.
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  taskTags TaskTag[]
+
+  @@map("tags")
+}
+
+// task_tags — explicit junction (NOT Prisma's implicit M:N): a composite PK
+// over the two references and a per-side onDelete policy are both part of the
+// M06 design, and the explicit model is what keeps them expressible:
+//   fk_task_tags_task → Cascade  (deleting a task takes its junction rows)
+//   fk_task_tags_tag  → Restrict (a tag still in use cannot be deleted)
+model TaskTag {
+  taskId String @map("task_id")
+  tagId  String @map("tag_id")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, tagId]) // one row per (task, tag) pair — the junction "fact"
+  @@index([tagId])      // was idx_task_tags_tag_id: tag → task lookups
+  @@map("task_tags")
+}

@@ -1,0 +1,33 @@
+meta {
+  name: v2: duplicate seed title -> 409 (P2002 through the real API)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/tasks
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Buy milk"
+  }
+}
+
+assert {
+  res.status: eq 409
+}
+
+tests {
+  test("seeded-title duplicate maps P2002 to the CONFLICT envelope", function() {
+    // 'Buy milk' already exists (seeded, alice). The create hits
+    // @@unique([userId, title]) -> P2002 -> 409 CONFLICT, rendered by the
+    // untouched M05 central error handler.
+    const err = res.getBody().error;
+    expect(err.code).to.equal("CONFLICT");
+    expect(err.message).to.include("Buy milk");
+    expect(err.details).to.be.undefined;
+  });
+}
