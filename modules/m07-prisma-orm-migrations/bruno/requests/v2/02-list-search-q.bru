@@ -1,0 +1,25 @@
+meta {
+  name: v2: full-text search with q
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks?q=milk
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("q matches title or description contains", function() {
+    const body = res.getBody();
+    // Seed: 'Buy milk' (alice) and 'Buy oat milk' (bob).
+    expect(body.meta.total).to.equal(2);
+    const titles = body.data.map((t) => t.title).sort();
+    expect(titles).to.deep.equal(["Buy milk", "Buy oat milk"]);
+  });
+}

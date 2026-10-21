@@ -1,0 +1,26 @@
+meta {
+  name: v2: task without due date has low priority and null dueDate
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks/00000000-0000-4000-8000-000000000011
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("task 1 shows low priority and dueDate null", function() {
+    // Seeded task 1 'Buy milk': no due date -> priority low (the migration
+    // and the seed agree on this rule), dueDate null on the wire.
+    const task = res.getBody().data;
+    expect(task.title).to.equal("Buy milk");
+    expect(task.priority).to.equal("low");
+    expect(task.dueDate).to.be.null;
+  });
+}

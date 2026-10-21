@@ -1,0 +1,24 @@
+meta {
+  name: Get task (missing UUID -> 404)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks/00000000-0000-4000-8000-000000000000
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 404
+}
+
+tests {
+  test("404 envelope with no details array", function() {
+    const err = res.getBody().error;
+    expect(err.code).to.equal("NOT_FOUND");
+    expect(err.details).to.be.undefined;
+    expect(err.requestId).to.be.a("string");
+  });
+}

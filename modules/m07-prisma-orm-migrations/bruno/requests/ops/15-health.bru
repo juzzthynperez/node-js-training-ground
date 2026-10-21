@@ -1,0 +1,29 @@
+meta {
+  name: Health endpoint
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("health reports ok and an uptime number", function() {
+    const body = res.getBody();
+    expect(body.status).to.equal("ok");
+    expect(body.uptime).to.be.a("number");
+  });
+
+  test("health response carries a request id", function() {
+    const headers = res.getHeaders();
+    const rid = headers["x-request-id"] ?? headers["X-Request-Id"];
+    expect(rid).to.be.a("string");
+  });
+}
