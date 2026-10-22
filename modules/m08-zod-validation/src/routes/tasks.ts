@@ -29,6 +29,9 @@ export function makeTasksRouter(service: TaskService): Router {
     validate({ params: idParamsSchema, body: updateTaskSchema }),
     handlers.update,
   );
+  // M09 (test-first): two path segments — cannot collide with "/:id" above
+  // (which matches exactly one segment), so registration order is irrelevant.
+  router.patch("/:id/complete", validate({ params: idParamsSchema }), handlers.complete);
   router.delete("/:id", validate({ params: idParamsSchema }), handlers.remove);
 
   return router;

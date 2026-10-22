@@ -198,4 +198,21 @@ export class TaskService {
       throw mapPrismaError(err, { id });
     }
   }
+
+  /** M09 (added test-first): mark a task done. One concern — the endpoint
+   *  owns ONLY the status transition, so nothing else is written; P2025 from
+   *  the update maps to the same 404 as every other write through the same
+   *  seam. Completing an already-done task is idempotent: the update simply
+   *  sets the value it already has (the regression test pins this). */
+  async complete(id: string): Promise<Task> {
+    try {
+      const row = await this.prisma.task.update({
+        where: { id },
+        data: { status: "done" },
+      });
+      return toWire(row);
+    } catch (err) {
+      throw mapPrismaError(err, { id });
+    }
+  }
 }

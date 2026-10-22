@@ -1,0 +1,42 @@
+# M09 definition of done — green CI on a pull request.
+#
+# Runs the brief's exact sequence (npm ci → prisma generate → typecheck →
+# test) inside the module directory, on Node 24 (engines >= 24; the module
+# is ESM + TypeScript 7). The workflow file must live at the repo root —
+# GitHub Actions only reads .github/workflows/ from there — so the module is
+# selected with defaults.run.working-directory instead of a nested copy.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modules/m08-zod-validation
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: modules/m08-zod-validation/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Type-check (tsc --noEmit — types are NOT Jest's job)
+        run: npm run typecheck
+
+      - name: Integration tests (ESM mode, single writer)
+        run: npm test

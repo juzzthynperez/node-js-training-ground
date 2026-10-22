@@ -54,5 +54,13 @@ export function makeTaskHandlers(service: TaskService) {
       await service.remove(id);
       res.sendStatus(204);
     },
+
+    // M09 (test-first): no body exists on this endpoint, so the params gate
+    // idParamsSchema is the whole request contract — nothing to parse beyond it.
+    async complete(req: Request, res: Response): Promise<void> {
+      const { id } = getValid(req, "params", idParamsSchema);
+      const task = await service.complete(id);
+      res.status(200).json({ data: task });
+    },
   };
 }

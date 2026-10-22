@@ -1,5 +1,13 @@
 node_modules
 # Keep environment variables out of version control
 .env
+.env.test
+
+# M09: the test database is per-machine build output, never committed —
+# include the WAL/SHM sidecars in case the driver ever enables WAL
+test.db
+test.db-journal
+test.db-wal
+test.db-shm
 
 /src/generated/prisma
