@@ -4,7 +4,7 @@
 
 Express 5 + TypeScript 7 (ESM) + Prisma 7 + Zod 4 Task API. M08 built the
 v3 validation layer; **M09 evolved this same directory into Task API v4** —
-25+ Jest 30 / Supertest 7 integration tests against the real exported app and
+58 Jest 30 / Supertest 7 integration tests against the real exported app and
 a dedicated SQLite `test.db`, plus the test-first `PATCH /tasks/:id/complete`
 endpoint. (In-place reuse instead of a copied module folder was an
 owner-directed revision — v3's exact state remains on the branch

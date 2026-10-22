@@ -17,8 +17,9 @@ export default {
     "^.+\\.tsx?$": ["@swc/jest", { jsc: { parser: { syntax: "typescript" } } }],
   },
   // Order is load-bearing: globalSetup builds test.db ONCE in the main
-  // process → setup-env points each WORKER at test.db before any test module
-  // imports src/db.ts → setup-framework registers the per-suite disconnect.
+  // process → setup-env points the worker at test.db before any test module
+  // imports src/db.ts (setupFiles re-run per test file — kept idempotent) →
+  // setup-framework registers the per-suite disconnect.
   globalSetup: "<rootDir>/tests/global-setup.mjs",
   setupFiles: ["<rootDir>/tests/setup-env.mjs"],
   setupFilesAfterEnv: ["<rootDir>/tests/setup-framework.ts"],

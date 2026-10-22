@@ -81,7 +81,7 @@ describe("PATCH /api/v1/tasks/:id/complete", () => {
     });
   });
 
-  it("non-UUID id → 400 at the params gate, handler never runs", async () => {
+  it("non-UUID id → 400 at the params gate, before the handler's path", async () => {
     const res = await request(app).patch("/api/v1/tasks/nope/complete");
 
     expect(res.status).toBe(400);

@@ -1,5 +1,8 @@
-// Jest setupFiles (M09) — runs ONCE PER WORKER, before the first test file
-// module is evaluated. That ordering is the entire point: src/db.ts reads
+// Jest setupFiles (M09) — runs before EVERY test file module is evaluated in
+// this worker (Jest's setupFiles re-run per test file — the setup must stay
+// idempotent; it does: dotenv never re-injects over existing keys and the
+// forced assignment below is constant). That ordering is the entire point:
+// src/db.ts reads
 // DATABASE_URL AT MODULE LOAD, and dotenv (which it imports as
 // `import "dotenv/config"`) never overrides a variable that already exists —
 // so loading .env.test HERE, first, makes the later dev-env load a no-op and
