@@ -67,6 +67,30 @@ export function errorHandlerFactory(options: ErrorHandlerOptions): ErrorRequestH
       return;
     }
 
+    // M09: body-parser's JSON SyntaxError is a CLIENT error, not a programmer
+    // error. express.json() marks it with type "entity.parse.failed" and
+    // status 400, but without this branch it fell through to the 500 below —
+    // answering INTERNAL_ERROR for a broken request body and echoing the
+    // parser's message in non-production (observed live: probe.test.ts capture
+    // in evidence/m09/). Malformed JSON now answers the same frozen validation
+    // envelope every 400 uses, with no details (there is no field path — the
+    // body never parsed far enough to have one).
+    if (
+      err instanceof SyntaxError &&
+      "type" in err &&
+      (err as SyntaxError & { type?: string }).type === "entity.parse.failed"
+    ) {
+      const envelope: ErrorEnvelope = {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Body must be valid JSON",
+          ...(requestId !== undefined ? { requestId } : {}),
+        },
+      };
+      res.status(400).json(envelope);
+      return;
+    }
+
     // Programmer error (or anything we didn't anticipate): log the full truth,
     // respond with a fixed 500 that leaks nothing.
     console.error(
