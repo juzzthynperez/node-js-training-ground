@@ -1,0 +1,23 @@
+meta {
+  name: Get task by id (200)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks/{{createdTaskId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("returns the task created in step 2", function() {
+    const body = res.getBody();
+    expect(body.data.id).to.equal(bru.getVar("createdTaskId"));
+    expect(body.data.title).to.equal("Bruno: verify the M05 checkpoint");
+  });
+}

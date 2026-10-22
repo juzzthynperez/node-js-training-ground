@@ -1,0 +1,29 @@
+meta {
+  name: v2: pagination with meta
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks?page=2&pageSize=5
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("page 2 holds the next 5 of 18, meta is complete", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.length(5);
+    expect(body.meta).to.deep.equal({ page: 2, pageSize: 5, total: 18, totalPages: 4 });
+  });
+
+  test("default sort (createdAt desc) puts task 13 first on page 2", function() {
+    const body = res.getBody();
+    // Seed order by created_at desc: 18,17,16,15,14 | 13,12,11,10,9 | ...
+    expect(body.data[0].title).to.equal("Plan sprint retro");
+  });
+}

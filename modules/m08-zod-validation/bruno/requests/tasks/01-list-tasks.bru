@@ -1,0 +1,33 @@
+meta {
+  name: List tasks
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("responds 200 with a data array", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("data");
+    expect(body.data).to.be.an("array");
+  });
+
+  test("every item has the four contract fields", function() {
+    const body = res.getBody();
+    for (const task of body.data) {
+      expect(task).to.have.property("id");
+      expect(task).to.have.property("title");
+      expect(task).to.have.property("status");
+      expect(["todo", "in_progress", "done"]).to.include(task.status);
+    }
+  });
+}

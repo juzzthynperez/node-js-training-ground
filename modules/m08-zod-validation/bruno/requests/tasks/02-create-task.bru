@@ -1,0 +1,49 @@
+meta {
+  name: Create task (valid -> 201)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/tasks
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Bruno: verify the M05 checkpoint",
+    "description": "Created by the Bruno collection run",
+    "status": "todo"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("createdTaskId", body.data.id);
+}
+
+tests {
+  test("responds 201 with the created task", function() {
+    const body = res.getBody();
+    expect(body.data.title).to.equal("Bruno: verify the M05 checkpoint");
+    expect(body.data.status).to.equal("todo");
+    expect(body.data.id).to.be.a("string");
+  });
+
+  test("sets a Location header to the new resource", function() {
+    const location = res.getHeaders()["location"] ?? res.getHeaders()["Location"];
+    expect(location).to.equal(`/api/v1/tasks/${res.getBody().data.id}`);
+  });
+
+  test("sets x-request-id on the response", function() {
+    const headers = res.getHeaders();
+    const rid = headers["x-request-id"] ?? headers["X-Request-Id"];
+    expect(rid).to.be.a("string");
+    expect(rid.length).to.be.greaterThan(0);
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: v2: seeded task carries priority and dueDate
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks/00000000-0000-4000-8000-000000000012
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("task 2 shows its seeded priority (same rule as the backfill) and ISO dueDate", function() {
+    // Seeded task 2 'Write sprint report': due 2026-10-22 (after the
+    // migration cutoff) -> priority medium, dueDate present as ISO text.
+    const task = res.getBody().data;
+    expect(task.title).to.equal("Write sprint report");
+    expect(task.priority).to.equal("medium");
+    expect(task.dueDate).to.be.a("string");
+    expect(task.dueDate).to.include("2026-10-22");
+  });
+}
