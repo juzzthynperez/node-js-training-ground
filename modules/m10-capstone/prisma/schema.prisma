@@ -1,0 +1,108 @@
+// M10 capstone — the Library API schema (plan step 3).
+//
+// Design decisions (mirrored in the write-up):
+//   * ids are UUID Strings — the M07/M05 convention in this program (wire
+//     contract surface, not a storage choice).
+//   * role is String, not a Prisma enum: SQLite has no native enum type (the
+//     M08 status decision, same reasoning) — input is gated by the Zod enum in
+//     src/schemas/auth.schemas.ts instead.
+//   * Book.available is a stored flag flipped INSIDE the borrow transaction
+//     together with the active-loan check (defense in depth: the check is the
+//     rule, the flag makes list-filtering cheap, the transaction keeps them
+//     from ever disagreeing).
+//   * BookAuthor is an explicit junction (NOT Prisma's implicit M:N), so the
+//     per-side onDelete policy stays expressible — the M06 junction lesson.
+//   * snake_case columns via @map/@@map, so a .schema dump stays comparable
+//     with the program's SQL conventions.
+//   * FK delete policies: deleting a book that has loan history is REFUSED
+//     (Restrict — history is evidence); deleting a book unlinks its authors
+//     (Cascade); deleting an author unlinks junction rows but keeps the books
+//     (Cascade — a book outlives its author record's removal).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // The generated client imports use .ts extensions to match this project's
+  // ESM import convention (same as every hand-written file in src/).
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// users — accounts with one of two roles (MEMBER | LIBRARIAN). Created by
+// registration (bcrypt hash), never by a CRUD endpoint.
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("MEMBER") // enum lost on SQLite: Zod gates input
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  loans Loan[]
+
+  @@map("users")
+}
+
+// authors — "one" side of the M:N with books via book_authors.
+model Author {
+  id        String   @id @default(uuid())
+  name      String
+  bio       String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  books BookAuthor[]
+
+  @@map("authors")
+}
+
+// books — the contested resource: the borrow rule is enforced against this
+// row's `available` flag inside a transaction (see src/services/loan.service.ts).
+model Book {
+  id        String   @id @default(uuid())
+  title     String
+  isbn      String   @unique
+  available Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  loans       Loan[]
+  bookAuthors BookAuthor[]
+
+  @@index([title]) // list endpoint sorts by title
+  @@map("books")
+}
+
+// book_authors — explicit M:N junction: composite PK, per-side delete policy.
+model BookAuthor {
+  bookId   String @map("book_id")
+  authorId String @map("author_id")
+
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, authorId]) // one row per (book, author) pair — the junction "fact"
+  @@index([authorId])      // author → book lookups
+  @@map("book_authors")
+}
+
+// loans — one row per borrowing event; returnedAt NULL means the book is out
+// (that is the active-loan definition the business rule checks).
+model Loan {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  bookId     String    @map("book_id")
+  borrowedAt DateTime  @default(now()) @map("borrowed_at")
+  dueAt      DateTime  @map("due_at")
+  returnedAt DateTime? @map("returned_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Restrict)
+
+  @@index([bookId]) // the active-loan lookup: WHERE book_id = ? AND returned_at IS NULL
+  @@index([userId]) // "my loans"
+  @@map("loans")
+}
