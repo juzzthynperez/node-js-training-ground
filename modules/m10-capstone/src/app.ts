@@ -18,13 +18,19 @@ import { errorHandlerFactory } from "./middleware/error-handler.ts";
 import { notFound } from "./middleware/not-found.ts";
 import { requestId } from "./middleware/request-id.ts";
 import { makeAuthRouter } from "./routes/auth.ts";
+import { makeAuthorsRouter } from "./routes/authors.ts";
+import { makeBooksRouter } from "./routes/books.ts";
 import { AuthService } from "./services/auth.service.ts";
+import { AuthorService } from "./services/author.service.ts";
+import { BookService } from "./services/book.service.ts";
 
 export function buildApp(config: AppConfig): Express {
   const app = express();
-  // The auth service owns the single PrismaClient singleton — the app never
-  // touches the database directly (the M05 store seam, new engine).
+  // Services own the single PrismaClient singleton — the app never touches
+  // the database directly (the M05 store seam, new engine).
   const authService = new AuthService(prisma, config);
+  const bookService = new BookService(prisma);
+  const authorService = new AuthorService(prisma);
 
   // 1. Identity first — every later step (including error envelopes) can
   //    rely on req.requestId.
@@ -38,8 +44,10 @@ export function buildApp(config: AppConfig): Express {
     res.status(200).json({ status: "ok", uptime: process.uptime() });
   });
 
-  // 4. Feature routers (auth first; books/authors/loans join in plan order).
+  // 4. Feature routers (auth first; books/authors join here; loans next).
   app.use("/api/v1/auth", makeAuthRouter(authService, config));
+  app.use("/api/v1/books", makeBooksRouter(bookService, config));
+  app.use("/api/v1/authors", makeAuthorsRouter(authorService, config));
 
   // 5. Unmatched routes funnel into the central handler.
   app.use(notFound);
