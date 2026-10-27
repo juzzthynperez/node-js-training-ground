@@ -25,9 +25,10 @@ tests {
     expect(body.books).to.be.an("array");
   });
 
-  test("unknown field filter: malformed id answers 400, not a crash", function() {
-    // (Guarded endpoint shape — the malformed-id gate is asserted in jest;
-    // here we only pin the happy path above.)
-    expect(true).to.equal(true);
+  test("detail returns exactly what create stored (create -> get round trip)", function() {
+    const body = res.getBody();
+    expect(body.name).to.equal("Bruno Author");
+    expect(body.bio).to.equal("Created by the Bruno collection run");
+    expect(body.createdAt).to.be.a("string");
   });
 }
