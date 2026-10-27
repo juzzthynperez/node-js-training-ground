@@ -39,7 +39,7 @@ export function buildApp(config: AppConfig): Express {
   });
 
   // 4. Feature routers (auth first; books/authors/loans join in plan order).
-  app.use("/api/v1/auth", makeAuthRouter(authService));
+  app.use("/api/v1/auth", makeAuthRouter(authService, config));
 
   // 5. Unmatched routes funnel into the central handler.
   app.use(notFound);
