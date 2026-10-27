@@ -2,25 +2,41 @@
 // server.ts's job; keeping them separate is what lets the Supertest tests
 // import the app without opening a port).
 //
-// Build order note (plan): this is the SKELETON stage — health check only.
-// The request-id/error middleware chain and every feature router are mounted
-// by their own feature branches in plan order (error contract → auth →
-// CRUD/list → loans), each re-verifying this file on the way through.
+// Middleware order is the design (M05 lesson): request-id FIRST (so
+// everything downstream, including error responses, can carry the id) →
+// body parsing → routes → 404 → central error handler LAST (error middleware
+// must come after routers or it never sees their errors).
+//
+// Build order note (plan): feature routers (auth, books, authors, loans) are
+// mounted by their own feature branches in plan order, each re-verifying this
+// file on the way through.
 
 import express, { type Express } from "express";
 import type { AppConfig } from "./config.ts";
+import { errorHandlerFactory } from "./middleware/error-handler.ts";
+import { notFound } from "./middleware/not-found.ts";
+import { requestId } from "./middleware/request-id.ts";
 
 export function buildApp(config: AppConfig): Express {
   const app = express();
 
-  // Body parsing. (Security/observability middleware joins with the error
-  // contract feature, which is where requestId starts feeding the envelope.)
+  // 1. Identity first — every later step (including error envelopes) can
+  //    rely on req.requestId.
+  app.use(requestId);
+
+  // 2. Body parsing.
   app.use(express.json());
 
-  // Health endpoint (unversioned: it's operational, not a resource).
+  // 3. Health endpoint (unversioned: it's operational, not a resource).
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", uptime: process.uptime() });
   });
+
+  // 4. Unmatched routes funnel into the central handler.
+  app.use(notFound);
+
+  // 5. Central error handler — must be last.
+  app.use(errorHandlerFactory({ isProduction: config.isProduction }));
 
   return app;
 }
