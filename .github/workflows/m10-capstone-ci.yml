@@ -1,0 +1,45 @@
+# M10 Capstone CI — green CI on a pull request (plan: written FIRST, before
+# feature code, so every later branch proves itself against the same gates).
+#
+# Runs the brief's exact sequence (npm ci → typecheck → test) inside the
+# capstone module directory, on Node 24 (engines >= 24; the module is ESM +
+# TypeScript 7). GitHub Actions only reads .github/workflows/ from the repo
+# root, so the module is selected with defaults.run.working-directory.
+# Separate file from ci.yml (the M08/M09 workflow): the capstone proves
+# itself without touching the workflow prior modules shipped green.
+
+name: M10 Capstone CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modules/m10-capstone
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: modules/m10-capstone/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # "Generate Prisma client" (npx prisma generate) joins with the feat(db)
+      # branch — the schema does not exist at the skeleton stage, and a
+      # generate without it fails.
+
+      - name: Type-check (tsc --noEmit — types are NOT Jest's job)
+        run: npm run typecheck
+
+      - name: Integration tests (ESM mode, single writer)
+        run: npm test

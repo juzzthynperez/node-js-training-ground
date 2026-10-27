@@ -1,0 +1,21 @@
+node_modules
+# Keep environment variables out of version control —
+# never commit .env or .env.test (arch doc repository conventions)
+.env
+.env.test
+
+# Databases are per-machine build output, never committed —
+# include the WAL/SHM sidecars in case the driver ever enables WAL
+# (the repo root also ignores *.db; these name the sidecars explicitly)
+dev.db
+dev.db-journal
+dev.db-wal
+dev.db-shm
+test.db
+test.db-journal
+test.db-wal
+test.db-shm
+
+# Prisma generated client — the root pattern is anchored to the repo root,
+# so this module ignores its own copy (m08 convention)
+/src/generated/
