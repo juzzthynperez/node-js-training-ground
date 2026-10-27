@@ -13,12 +13,18 @@
 
 import express, { type Express } from "express";
 import type { AppConfig } from "./config.ts";
+import { prisma } from "./db.ts";
 import { errorHandlerFactory } from "./middleware/error-handler.ts";
 import { notFound } from "./middleware/not-found.ts";
 import { requestId } from "./middleware/request-id.ts";
+import { makeAuthRouter } from "./routes/auth.ts";
+import { AuthService } from "./services/auth.service.ts";
 
 export function buildApp(config: AppConfig): Express {
   const app = express();
+  // The auth service owns the single PrismaClient singleton — the app never
+  // touches the database directly (the M05 store seam, new engine).
+  const authService = new AuthService(prisma, config);
 
   // 1. Identity first — every later step (including error envelopes) can
   //    rely on req.requestId.
@@ -32,10 +38,13 @@ export function buildApp(config: AppConfig): Express {
     res.status(200).json({ status: "ok", uptime: process.uptime() });
   });
 
-  // 4. Unmatched routes funnel into the central handler.
+  // 4. Feature routers (auth first; books/authors/loans join in plan order).
+  app.use("/api/v1/auth", makeAuthRouter(authService));
+
+  // 5. Unmatched routes funnel into the central handler.
   app.use(notFound);
 
-  // 5. Central error handler — must be last.
+  // 6. Central error handler — must be last.
   app.use(errorHandlerFactory({ isProduction: config.isProduction }));
 
   return app;
