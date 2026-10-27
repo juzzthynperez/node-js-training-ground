@@ -72,6 +72,7 @@ model Book {
   bookAuthors BookAuthor[]
 
   @@index([title]) // list endpoint sorts by title
+  @@index([createdAt]) // list endpoint also sorts by createdAt (offset pages)
   @@map("books")
 }
 
@@ -102,7 +103,7 @@ model Loan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   book Book @relation(fields: [bookId], references: [id], onDelete: Restrict)
 
-  @@index([bookId]) // the active-loan lookup: WHERE book_id = ? AND returned_at IS NULL
+  @@index([bookId, returnedAt]) // the active-loan lookup: WHERE book_id = ? AND returned_at IS NULL (composite serves plain book_id lookups by prefix too)
   @@index([userId]) // "my loans"
   @@map("loans")
 }
