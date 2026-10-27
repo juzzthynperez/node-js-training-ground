@@ -1,0 +1,38 @@
+meta {
+  name: List books (member token -> 200 items+meta)
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/books
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("responds 200 with {items, meta} and M:N authors on every row", function() {
+    const body = res.getBody();
+    expect(body.items).to.be.an("array");
+    expect(body.items.length).to.be.greaterThan(0);
+    expect(body.meta).to.have.property("page");
+    expect(body.meta).to.have.property("pageSize");
+    expect(body.meta).to.have.property("total");
+    expect(body.meta).to.have.property("totalPages");
+    expect(body.meta.total).to.be.at.least(body.items.length);
+    for (const book of body.items) {
+      expect(book).to.have.property("id");
+      expect(book).to.have.property("title");
+      expect(book).to.have.property("available");
+      expect(book.authors).to.be.an("array");
+    }
+  });
+}

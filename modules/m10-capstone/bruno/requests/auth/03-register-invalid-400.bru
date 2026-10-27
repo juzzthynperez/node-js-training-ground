@@ -1,0 +1,34 @@
+meta {
+  name: Register invalid body -> 400 with details
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Bruno Reader",
+    "email": "not-an-email",
+    "password": "short"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("validation error carries details[] naming both fields", function() {
+    const body = res.getBody();
+    expect(body.error.code).to.equal("VALIDATION_ERROR");
+    expect(body.error.details).to.be.an("array");
+    const paths = body.error.details.map((d) => d.path);
+    expect(paths).to.include("email");
+    expect(paths).to.include("password");
+  });
+}

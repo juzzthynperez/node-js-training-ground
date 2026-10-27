@@ -1,0 +1,42 @@
+meta {
+  name: List books filtered + sorted desc (available=true, sort=title)
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/books?available=true&sort=title&order=desc
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("filter: every returned book is available", function() {
+    const body = res.getBody();
+    expect(body.items).to.be.an("array");
+    for (const book of body.items) {
+      expect(book.available).to.equal(true);
+    }
+  });
+
+  test("sort: titles are in descending order", function() {
+    const body = res.getBody();
+    const titles = body.items.map((b) => b.title);
+    const sorted = [...titles].sort().reverse();
+    expect(titles).to.deep.equal(sorted);
+  });
+
+  test("meta echoes the requested page size", function() {
+    const body = res.getBody();
+    expect(body.meta.pageSize).to.equal(10);
+    expect(body.meta.page).to.equal(1);
+  });
+}

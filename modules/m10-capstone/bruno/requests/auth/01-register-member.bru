@@ -1,0 +1,52 @@
+meta {
+  name: Register member (dynamic email -> 201)
+  type: http
+  seq: 1
+}
+
+script:pre-request {
+  // Timestamped email so a rerun against a live server never collides with
+  // the previous run's row (the 409 demo consumes the same variable next).
+  bru.setVar("registerEmail", "bruno-" + Date.now() + "@library.test");
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Bruno Reader",
+    "email": "{{registerEmail}}",
+    "password": "bruno-pass-123"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  const body = res.getBody();
+  // Registration logs you in: the 201 carries a usable token.
+  bru.setVar("jwt", body.token);
+}
+
+tests {
+  test("responds 201 with token and the public user (role MEMBER)", function() {
+    const body = res.getBody();
+    expect(body.token).to.be.a("string");
+    expect(body.user.role).to.equal("MEMBER");
+    expect(body.user.email).to.equal(bru.getVar("registerEmail"));
+    expect(body.user).to.not.have.property("passwordHash");
+  });
+
+  test("sets x-request-id on the response", function() {
+    const headers = res.getHeaders();
+    const rid = headers["x-request-id"] ?? headers["X-Request-Id"];
+    expect(rid).to.be.a("string");
+    expect(rid.length).to.be.greaterThan(0);
+  });
+}

@@ -162,6 +162,14 @@ describe("PATCH /api/v1/books/:id", () => {
       .send({ authorIds: [a2.id] });
     expect(res.status).toBe(200);
     expect(res.body.authors.map((a: { id: string }) => a.id)).toEqual([a2.id]);
+
+    // Empty array = unlink all (the explicit "this book has no authors").
+    const unlinkAll = await request(testApp())
+      .patch(`/api/v1/books/${book.id}`)
+      .set("Authorization", `Bearer ${librarian}`)
+      .send({ authorIds: [] });
+    expect(unlinkAll.status).toBe(200);
+    expect(unlinkAll.body.authors).toEqual([]);
   });
 
   it("empty body → 400 (at least one field); unknown id → 404; bad uuid → 400", async () => {

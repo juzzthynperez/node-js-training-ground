@@ -221,4 +221,32 @@ describe("GET /api/v1/loans — own history only", () => {
   it("anonymous → 401", async () => {
     await request(testApp()).get("/api/v1/loans").expect(401);
   });
+
+  it("returning ONE loan does not re-enable the book while another active loan exists (legacy rows)", async () => {
+    // Rows written directly, bypassing the API: the rule normally prevents
+    // two active loans on one book, but imported/legacy data can contain
+    // them. The return path must derive availability from "any active
+    // remains", not blindly flip the flag.
+    const book = await makeBook("Doubly Loaned", "isbn-double");
+    const loanA = await prisma.loan.create({
+      data: { userId: (await prisma.user.findUnique({ where: { email: "member@library.test" } }))!.id, bookId: book.id, dueAt: new Date() },
+    });
+    await prisma.loan.create({
+      data: {
+        userId: (await prisma.user.findUnique({ where: { email: "other@library.test" } }))!.id,
+        bookId: book.id,
+        dueAt: new Date(),
+      },
+    });
+    await prisma.book.update({ where: { id: book.id }, data: { available: false } });
+
+    const res = await request(testApp())
+      .post(`/api/v1/loans/${loanA.id}/return`)
+      .set("Authorization", `Bearer ${memberToken}`);
+    expect(res.status).toBe(200);
+
+    // One active loan remains → the book stays out.
+    expect((await prisma.book.findUnique({ where: { id: book.id } }))?.available).toBe(false);
+    expect(await prisma.loan.count({ where: { bookId: book.id, returnedAt: null } })).toBe(1);
+  });
 });

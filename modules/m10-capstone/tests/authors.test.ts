@@ -67,6 +67,16 @@ describe("POST /api/v1/authors", () => {
     expect(await prisma.author.count()).toBe(0);
   });
 
+  it("creates without a bio — bio defaults to the empty string", async () => {
+    const librarian = await getLibrarianToken();
+    const res = await request(testApp())
+      .post("/api/v1/authors")
+      .set("Authorization", `Bearer ${librarian}`)
+      .send({ name: "No Bio Yet" });
+    expect(res.status).toBe(201);
+    expect(res.body.bio).toBe("");
+  });
+
   it("LIBRARIAN → 201; name must be non-empty → 400 with details", async () => {
     const librarian = await getLibrarianToken();
 
@@ -117,6 +127,29 @@ describe("PATCH /api/v1/authors/:id", () => {
       .set("Authorization", `Bearer ${librarian}`)
       .send({ name: "Ghost" });
     expect(missing.status).toBe(404);
+  });
+
+  it("name-only update leaves bio untouched; bio-only leaves name untouched", async () => {
+    const librarian = await getLibrarianToken();
+    const author = await prisma.author.create({
+      data: { name: "Original", bio: "Original bio" },
+    });
+
+    const nameOnly = await request(testApp())
+      .patch(`/api/v1/authors/${author.id}`)
+      .set("Authorization", `Bearer ${librarian}`)
+      .send({ name: "Renamed" });
+    expect(nameOnly.status).toBe(200);
+    expect(nameOnly.body.name).toBe("Renamed");
+    expect(nameOnly.body.bio).toBe("Original bio");
+
+    const bioOnly = await request(testApp())
+      .patch(`/api/v1/authors/${author.id}`)
+      .set("Authorization", `Bearer ${librarian}`)
+      .send({ bio: "New bio only" });
+    expect(bioOnly.status).toBe(200);
+    expect(bioOnly.body.name).toBe("Renamed");
+    expect(bioOnly.body.bio).toBe("New bio only");
   });
 });
 
