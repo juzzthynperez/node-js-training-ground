@@ -25,6 +25,7 @@ export default {
   },
   globalSetup: "<rootDir>/tests/global-setup.mjs",
   setupFiles: ["<rootDir>/tests/setup-env.mjs"],
+  setupFilesAfterEnv: ["<rootDir>/tests/setup-framework.ts"],
   testMatch: ["<rootDir>/tests/**/*.test.ts"],
   // Coverage scope is the brief's acceptance target: routes and services.
   // The generated client is third-party output — instrumenting it would sink
