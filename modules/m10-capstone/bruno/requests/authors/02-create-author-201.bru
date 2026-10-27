@@ -1,0 +1,39 @@
+meta {
+  name: Create author (librarian -> 201)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/authors
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwtLibrarian}}
+}
+
+body:json {
+  {
+    "name": "Bruno Author",
+    "bio": "Created by the Bruno collection run"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("authorId", body.id);
+}
+
+tests {
+  test("responds 201 with the created author", function() {
+    const body = res.getBody();
+    expect(body.name).to.equal("Bruno Author");
+    expect(body.id).to.be.a("string");
+  });
+}

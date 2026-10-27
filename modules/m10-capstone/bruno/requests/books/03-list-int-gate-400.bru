@@ -1,0 +1,29 @@
+meta {
+  name: List books page=007 -> 400 (exact int gate)
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/books?page=007
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 400
+}
+
+tests {
+  test("leading-zero int is rejected with details naming page", function() {
+    const body = res.getBody();
+    expect(body.error.code).to.equal("VALIDATION_ERROR");
+    expect(body.error.details).to.be.an("array");
+    const paths = body.error.details.map((d) => d.path);
+    expect(paths).to.include("page");
+  });
+}

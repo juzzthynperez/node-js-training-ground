@@ -1,0 +1,26 @@
+meta {
+  name: Get deleted author -> 404
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/authors/{{authorId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 404
+}
+
+tests {
+  test("deleted author answers NOT_FOUND", function() {
+    const body = res.getBody();
+    expect(body.error.code).to.equal("NOT_FOUND");
+  });
+}

@@ -1,0 +1,39 @@
+meta {
+  name: My loans (member -> 200, own rows only)
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/v1/loans
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("own loans include this run's contested copy", function() {
+    const body = res.getBody();
+    expect(body.items).to.be.an("array");
+    const mine = body.items.filter((l) => l.bookId === bru.getVar("loanBookId"));
+    expect(mine.length).to.be.greaterThan(0);
+  });
+
+  test("every row carries the loan + book shape and the caller's id", function() {
+    const body = res.getBody();
+    for (const loan of body.items) {
+      expect(loan).to.have.property("id");
+      expect(loan).to.have.property("borrowedAt");
+      expect(loan).to.have.property("dueAt");
+      expect(loan.book).to.have.property("title");
+      expect(loan.userId).to.equal(bru.getVar("jwtUserId"));
+    }
+  });
+}

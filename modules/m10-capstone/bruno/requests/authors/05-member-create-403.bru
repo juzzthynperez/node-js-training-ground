@@ -1,0 +1,33 @@
+meta {
+  name: Create author as MEMBER -> 403 (role gate)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/authors
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "name": "Should Never Be Created"
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+
+tests {
+  test("wrong role answers FORBIDDEN through the envelope", function() {
+    const body = res.getBody();
+    expect(body.error.code).to.equal("FORBIDDEN");
+    expect(body.error).to.not.have.property("details");
+  });
+}

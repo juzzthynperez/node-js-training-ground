@@ -1,0 +1,33 @@
+meta {
+  name: Patch author (librarian -> 200)
+  type: http
+  seq: 10
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/authors/{{authorId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwtLibrarian}}
+}
+
+body:json {
+  {
+    "bio": "Updated by Bruno"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("bio updated, name untouched (partial update)", function() {
+    const body = res.getBody();
+    expect(body.bio).to.equal("Updated by Bruno");
+    expect(body.name).to.equal("Bruno Author");
+  });
+}

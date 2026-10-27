@@ -1,0 +1,25 @@
+meta {
+  name: Delete book (librarian -> 204)
+  type: http
+  seq: 22
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/books/{{bookId}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwtLibrarian}}
+}
+
+assert {
+  res.status: eq 204
+}
+
+tests {
+  test("deletion answers 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

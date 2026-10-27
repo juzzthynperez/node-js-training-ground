@@ -1,0 +1,40 @@
+meta {
+  name: Borrow contested book (member -> 201)
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/loans
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "bookId": "{{loanBookId}}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("loanId", body.id);
+}
+
+tests {
+  test("loan created: returnedAt null, book flipped unavailable in the view", function() {
+    const body = res.getBody();
+    expect(body.returnedAt).to.equal(null);
+    expect(body.bookId).to.equal(bru.getVar("loanBookId"));
+    expect(body.book.available).to.equal(false);
+    expect(body.dueAt).to.be.a("string");
+  });
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Patch book (librarian -> 200)
+  type: http
+  seq: 21
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/books/{{bookId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwtLibrarian}}
+}
+
+body:json {
+  {
+    "title": "Bruno: Created Book (edited)",
+    "available": false
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("partial update applied: title and flag changed, isbn untouched", function() {
+    const body = res.getBody();
+    expect(body.title).to.equal("Bruno: Created Book (edited)");
+    expect(body.available).to.equal(false);
+    expect(body.isbn).to.equal(bru.getVar("bookIsbn"));
+  });
+}

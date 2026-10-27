@@ -1,0 +1,23 @@
+meta {
+  name: Health (no auth -> 200)
+  type: http
+  seq: 29
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("health answers status ok with uptime", function() {
+    const body = res.getBody();
+    expect(body.status).to.equal("ok");
+    expect(body.uptime).to.be.a("number");
+  });
+}

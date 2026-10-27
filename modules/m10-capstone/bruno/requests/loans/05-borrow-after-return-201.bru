@@ -1,0 +1,33 @@
+meta {
+  name: Borrow after return -> 201 (flag round trip)
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/v1/loans
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "bookId": "{{loanBookId}}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("a returned book is borrowable again", function() {
+    const body = res.getBody();
+    expect(body.returnedAt).to.equal(null);
+    expect(body.bookId).to.equal(bru.getVar("loanBookId"));
+  });
+}

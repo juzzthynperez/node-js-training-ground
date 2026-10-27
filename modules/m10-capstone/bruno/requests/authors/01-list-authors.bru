@@ -1,0 +1,31 @@
+meta {
+  name: List authors (member token -> 200)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/authors
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("responds 200 with an items array of authors", function() {
+    const body = res.getBody();
+    expect(body.items).to.be.an("array");
+    for (const author of body.items) {
+      expect(author).to.have.property("id");
+      expect(author).to.have.property("name");
+      expect(author).to.have.property("bio");
+    }
+  });
+}

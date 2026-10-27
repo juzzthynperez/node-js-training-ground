@@ -1,0 +1,33 @@
+meta {
+  name: Borrow the same book again -> 409 (the business rule)
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/v1/loans
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+body:json {
+  {
+    "bookId": "{{loanBookId}}"
+  }
+}
+
+assert {
+  res.status: eq 409
+}
+
+tests {
+  test("active loan refuses the second borrow with CONFLICT", function() {
+    const body = res.getBody();
+    expect(body.error.code).to.equal("CONFLICT");
+    expect(body.error.message).to.contain("active loan");
+  });
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Create duplicate isbn -> 409
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/v1/books
+  body: json
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwtLibrarian}}
+}
+
+body:json {
+  {
+    "title": "Bruno: Duplicate Title",
+    "isbn": "{{bookIsbn}}"
+  }
+}
+
+assert {
+  res.status: eq 409
+}
+
+tests {
+  test("duplicate isbn answers the CONFLICT envelope", function() {
+    const body = res.getBody();
+    expect(body.error.code).to.equal("CONFLICT");
+    expect(body.error.message).to.be.a("string");
+    expect(body.error).to.not.have.property("details");
+  });
+}

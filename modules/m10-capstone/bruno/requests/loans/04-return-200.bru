@@ -1,0 +1,27 @@
+meta {
+  name: Return the loan (owner -> 200)
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/api/v1/loans/{{loanId}}/return
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{jwt}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("loan marked returned and book availability restored", function() {
+    const body = res.getBody();
+    expect(body.returnedAt).to.not.equal(null);
+    expect(body.book.available).to.equal(true);
+  });
+}
